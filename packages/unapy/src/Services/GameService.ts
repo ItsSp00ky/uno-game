@@ -202,12 +202,6 @@ class GameService {
 
 		const player = game?.players?.find(player => player.id === currentPlayerInfo.id)
 
-		const needToBuyCard = player?.handCards?.every(card => !card.canBeUsed)
-
-		if (!needToBuyCard) {
-			return
-		}
-
 		const available = [...game?.availableCards]
 
 		const card = available.shift()
@@ -482,7 +476,27 @@ class GameService {
 		if (!usableCard) {
 			await this.buyCard(playerId, gameId)
 
-			return await this.makeComputedPlay(gameId, playerId)
+			const updatedGame = await this.getGame(gameId)
+			const currentPlayerInfo = await this.getCurrentPlayerInfo(updatedGame)
+
+			// If the turn passed naturally because the drawn card was useless, halt recursive loop
+			if (currentPlayerInfo.id !== playerId) {
+				return
+			}
+
+			// If the player is still active, it implies they drew a playable card and entered 'canPass'
+			const updatedPlayer = updatedGame.players.find(p => p.id === playerId)
+			if (updatedPlayer?.canPass) {
+				const newlyUsableCard = updatedPlayer.handCards.find(card => card.canBeUsed)
+				if (newlyUsableCard) {
+					const color = await this.getOptimizedBotColorSelection(updatedPlayer.handCards)
+					return await this.putCard(playerId, [newlyUsableCard.id], gameId, color)
+				} else {
+					return await this.passTurn(playerId, gameId)
+				}
+			}
+
+			return
 		}
 
 		const color = await this.getOptimizedBotColorSelection(handCards)
@@ -926,7 +940,7 @@ class GameService {
 				return {
 					...player,
 					isCurrentRoundPlayer: true,
-					canBuyCard: handCards.every(card => !card.canBeUsed),
+					canBuyCard: true,
 					canPass: false,
 					handCards,
 				}
