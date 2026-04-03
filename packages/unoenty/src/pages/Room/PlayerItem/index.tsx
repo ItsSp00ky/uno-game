@@ -5,7 +5,9 @@ import {
 } from "@material-ui/core"
 import {
 	Star as StarIcon,
+	Close as CloseIcon,
 } from "@material-ui/icons"
+import { IconButton } from "@material-ui/core"
 
 import {
 	Avatar,
@@ -21,10 +23,11 @@ type PlayerItem = {
 	name: string
 	ready: boolean
 	playerId: string
+	onKick?: () => void
 }
 
 const PlayerItem: React.FC<PlayerItem> = (props) => {
-	const { name, ready, playerId } = props
+	const { name, ready, playerId, onKick } = props
 
 	const socket = useSocket()
 
@@ -84,12 +87,27 @@ const PlayerItem: React.FC<PlayerItem> = (props) => {
 				</Grid>
 			</Grid>
 
-			<Typography
-				variant="h2"
-				className={classes.statusText}
-			>
-				{ready ? "READY" : "UNREADY"}
-			</Typography>
+			<Grid item>
+				<Grid container alignItems="center">
+					<Typography
+						variant="h2"
+						className={classes.statusText}
+					>
+						{ready ? "READY" : "UNREADY"}
+					</Typography>
+
+					{onKick && (
+						<IconButton 
+							size="small" 
+							style={{ marginLeft: 8, color: "rgba(255, 255, 255, 0.5)" }}
+							onClick={onKick}
+							title="Kick Player"
+						>
+							<CloseIcon fontSize="small" />
+						</IconButton>
+					)}
+				</Grid>
+			</Grid>
 		</Grid>
 	)
 }

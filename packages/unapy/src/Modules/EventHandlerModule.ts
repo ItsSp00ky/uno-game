@@ -20,6 +20,9 @@ import {
 	ChangePlayerStatusEventInput,
 	ToggleReadyEventInput,
 	ForceSelfDisconnectEventInput,
+	PassTurnEventInput,
+	FillWithBotsEventInput,
+	KickPlayerEventInput,
 } from "@uno-game/protocols"
 
 class EventHandlerModule {
@@ -101,6 +104,18 @@ class EventHandlerModule {
 					SocketService.removeListener(client, "game", purgedGame.id)
 					SocketService.removeListener(client, "chat", purgedGame.chatId)
 				})
+			})
+
+			SocketService.on<PassTurnEventInput, unknown>(client, "PassTurn", async ({ gameId }) => {
+				await GameService.passTurn(playerData.id, gameId)
+			})
+
+			SocketService.on<FillWithBotsEventInput, unknown>(client, "FillWithBots", async ({ gameId }) => {
+				await GameService.fillWithBots(gameId)
+			})
+
+			SocketService.on<KickPlayerEventInput, unknown>(client, "KickPlayer", async ({ gameId, playerId }) => {
+				await GameService.kickPlayer(gameId, playerId)
 			})
 
 			SocketService.on<unknown, unknown>(client, "disconnect", async () => {

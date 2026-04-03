@@ -21,6 +21,9 @@ import {
 	PlayerUnoEventData,
 	GameStartedEventData,
 	NewMessageEventData,
+	PassTurnEventInput,
+	FillWithBotsEventInput,
+	KickPlayerEventInput,
 } from "@uno-game/protocols"
 import { GameDeckLayoutPosition } from "@/utils/game"
 import { getSanitizedValueWithBoundaries } from "@/utils/number"
@@ -36,6 +39,9 @@ type UseSocketResponse = {
 	toggleReady: (gameId: string) => void
 	buyCard: (gameId: string) => void
 	putCard: (gameId: string, cardIds: string[], selectedColor: CardColors) => void
+	passTurn: (gameId: string) => void
+	fillWithBots: (gameId: string) => void
+	kickPlayer: (gameId: string, playerId: string) => void
 	toggleOnlineStatus: (gameId: string) => void
 	sendChatMessage: (chatId: string, content: string) => void
 	onGameStart: (fn: () => void) => void
@@ -149,6 +155,18 @@ const useSocket = (): UseSocketResponse => {
 
 	const buyCard = async (gameId: string) => {
 		await SocketService.emit<BuyCardEventInput, unknown>("BuyCard", { gameId })
+	}
+
+	const passTurn = async (gameId: string) => {
+		await SocketService.emit<PassTurnEventInput, unknown>("PassTurn", { gameId })
+	}
+
+	const fillWithBots = async (gameId: string) => {
+		await SocketService.emit<FillWithBotsEventInput, unknown>("FillWithBots", { gameId })
+	}
+
+	const kickPlayer = async (gameId: string, playerId: string) => {
+		await SocketService.emit<KickPlayerEventInput, unknown>("KickPlayer", { gameId, playerId })
 	}
 
 	const putCard = (gameId: string, cardIds: string[], selectedColor: CardColors) => {
@@ -312,6 +330,9 @@ const useSocket = (): UseSocketResponse => {
 		toggleReady,
 		buyCard,
 		putCard,
+		passTurn,
+		fillWithBots,
+		kickPlayer,
 		forceSelfDisconnect,
 		getChat,
 		onGameListUpdated,

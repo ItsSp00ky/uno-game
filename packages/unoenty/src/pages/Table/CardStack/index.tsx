@@ -1,6 +1,7 @@
 import React, { useRef } from "react"
 import { Grid, Typography, Zoom, Button } from "@material-ui/core"
 import { useDrop } from "react-dnd"
+import SyncIcon from "@material-ui/icons/Sync"
 
 import { CardData, CardTypes, CardColors, Game } from "@uno-game/protocols"
 
@@ -38,6 +39,10 @@ const CardStack: React.FC<CardStackProps> = (props) => {
 		socket.buyCard(game.id)
 	}
 
+	const passTurn = () => {
+		socket.passTurn(game.id)
+	}
+
 	const putCard = (cardIds: string[], selectedColor: CardColors) => {
 		socket.putCard(game.id, cardIds, selectedColor)
 	}
@@ -47,7 +52,7 @@ const CardStack: React.FC<CardStackProps> = (props) => {
 
 		const isColorEffectCard = (cardType: CardTypes) => cardType === "buy-4" || cardType === "change-color"
 
-		const cardComboIds = cardStore?.selectedCards?.reverse().map(card => card.id)
+		const cardComboIds = [...(cardStore?.selectedCards || [])].reverse().map(card => card.id)
 
 		const isSingleColorEffect = isColorEffectCard(card.cardType)
 		const isComboColorEffect = cardComboIds?.length > 1 && cardStore?.selectedCards?.every(card => isColorEffectCard(card.type))
@@ -91,6 +96,14 @@ const CardStack: React.FC<CardStackProps> = (props) => {
 					backgroundColor: isHovering ? "rgba(255, 255, 255, 0.15)" : "",
 				}}
 			>
+				<SyncIcon 
+					className={`${classes.directionArrow} ${
+						game?.direction === "clockwise" 
+							? classes.directionArrowClockwise 
+							: classes.directionArrowCounterClockwise
+					}`}
+				/>
+
 				<Zoom
 					in={!!game?.currentCardCombo?.amountToBuy}
 				>
@@ -126,6 +139,22 @@ const CardStack: React.FC<CardStackProps> = (props) => {
 							className={classes.buyCardButton}
 						>
 							BUY CARD
+						</Button>
+					</Grid>
+				)}
+
+				{socket?.currentPlayer?.canPass && (
+					<Grid
+						container
+						justify="center"
+						className={classes.buyCardContainer}
+					>
+						<Button
+							variant="contained"
+							onClick={passTurn}
+							className={classes.passTurnButton}
+						>
+							PASS
 						</Button>
 					</Grid>
 				)}

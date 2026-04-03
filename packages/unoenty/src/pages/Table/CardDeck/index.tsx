@@ -17,7 +17,9 @@ import useSocket from "@/hooks/useSocket"
 
 import { Divider, Avatar } from "@/components"
 
-import { PlayerData, CardData, CardTypes, Game } from "@uno-game/protocols"
+import { PlayerData, CardData, CardTypes, CardColors } from "@uno-game/protocols"
+
+import ChooseColorModal from "@/pages/Table/ChooseColorModal"
 
 import useStyles from "@/pages/Table/CardDeck/styles"
 import useCustomStyles from "@/styles/custom"
@@ -47,6 +49,7 @@ type CardProps = {
 	style: Record<string, unknown>,
 	className: string
 	onClick: () => void
+	onDoubleClick: () => void
 	selected: boolean
 	isDraggingAnyCard: boolean
 	onDragEnd: () => void
@@ -61,6 +64,7 @@ const DraggableCard: React.FC<CardProps> = (props) => {
 		style,
 		className,
 		onClick,
+		onDoubleClick,
 		selected,
 		isDraggingAnyCard,
 		onDragEnd,
@@ -112,8 +116,10 @@ const DraggableCard: React.FC<CardProps> = (props) => {
 					border: `${Device.isMobile ? "3px" : "5px"} solid #EC0000`,
 					borderRadius: Device.isMobile ? "8px" : "16px",
 				} : {}),
+				touchAction: "manipulation",
 			}}
 			onClick={onClick}
+			onDoubleClick={onDoubleClick}
 		/>
 	)
 }
@@ -192,22 +198,20 @@ const CardDeck: React.FC<CardDeckProps> = (props) => {
 	const toggleSelectedCard = (cardId: string) => {
 		const lastSelectedCards = cardStore.selectedCards
 		const selectedCard = cards.find(card => card.id === cardId)
-		const cardOnTopOfCardStack = (socketStore.game as Game).usedCards[0]
 		const selectedCardTypes = lastSelectedCards?.map(card => card.type)
 
 		const isAlreadySelected = isCardSelected(cardId)
 
 		if (isAlreadySelected) {
-			const cardsWithoutAlreadySelected = lastSelectedCards?.filter(card => card.id !== cardId)
+			const cardsWithoutDeselected = lastSelectedCards?.filter(card => card.id !== cardId)
 
-			if (cardOnTopOfCardStack.color === selectedCard?.color) {
-				if (cardsWithoutAlreadySelected[0] && cardsWithoutAlreadySelected[0].type === cardOnTopOfCardStack.type) {
-					cardStore.setSelectedCards(cardsWithoutAlreadySelected)
-				} else {
-					cardStore.setSelectedCards([])
-				}
+			if (cardsWithoutDeselected.length > 0) {
+				// Keep remaining cards that share the same type (valid combo)
+				const remainingType = cardsWithoutDeselected[0].type
+				const validRemaining = cardsWithoutDeselected.filter(card => card.type === remainingType)
+				cardStore.setSelectedCards(validRemaining)
 			} else {
-				cardStore.setSelectedCards(cardsWithoutAlreadySelected)
+				cardStore.setSelectedCards([])
 			}
 		} else if ((selectedCard && selectedCardTypes?.includes(selectedCard.type)) || !selectedCardTypes?.length) {
 			cardStore.setSelectedCards([
@@ -225,6 +229,40 @@ const CardDeck: React.FC<CardDeckProps> = (props) => {
 		if (cardStore.selectedCards.length > 0) {
 			unselectAllCards()
 		}
+	}
+
+	const handleDoubleClick = async (card: CardData) => {
+		if (!card.canBeUsed && !canBePartOfCurrentCombo(card.type)) {
+			return
+		}
+
+		let selectedColor = "" as CardColors
+
+		const isColorEffectCard = (cardType: CardTypes) => cardType === "buy-4" || cardType === "change-color"
+
+		const isCardSelectedLocally = isCardSelected(card.id)
+
+		// Define what we are trying to put:
+		// If we double click a card that's ALREADY in our multi-selection combo, we put the entire combo.
+		// If we double click an unselected card, we put ONLY that card.
+		const cardComboIds = isCardSelectedLocally 
+			? [...(cardStore?.selectedCards || [])].reverse().map(c => c.id)
+			: [card.id]
+
+		const isSingleColorEffect = !isCardSelectedLocally && isColorEffectCard(card.type)
+		const isComboColorEffect = isCardSelectedLocally && cardComboIds?.length > 1 && cardStore?.selectedCards?.every(c => isColorEffectCard(c.type))
+
+		// Open Modal if an effect is in play that needs color choosing
+		if (isSingleColorEffect || isComboColorEffect) {
+			selectedColor = await ChooseColorModal.open()
+
+			if (!selectedColor) {
+				return
+			}
+		}
+
+		socket.putCard(gameId, cardComboIds, selectedColor)
+		unselectAllCards()
 	}
 
 	const toggleOnlineStatus = () => {
@@ -301,6 +339,7 @@ const CardDeck: React.FC<CardDeckProps> = (props) => {
 								left: index * CARD_WIDTH,
 							}}
 							onClick={() => toggleSelectedCard(card.id)}
+							onDoubleClick={() => handleDoubleClick(card)}
 							selected={isCardSelected(card.id)}
 							isDraggingAnyCard={isDraggingAnyCard}
 							isMoreThanOneCardBeingDragged={cardStore?.selectedCards?.length > 1}

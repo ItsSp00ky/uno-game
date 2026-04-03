@@ -4,6 +4,7 @@ import { Grid, Button, Typography } from "@material-ui/core"
 import {
 	Check as ReadyIcon,
 	Close as CancelIcon,
+	PersonAdd as PersonAddIcon,
 } from "@material-ui/icons"
 
 import { useSocketStore } from "@/store/Socket"
@@ -40,8 +41,14 @@ const Room: React.FC = () => {
 
 	const { gameId } = useParams<{ gameId: string }>()
 
+	const isHost = socketStore?.game?.title === socket?.currentPlayer?.name
+
 	const toggleReady = () => {
 		socket.toggleReady(gameId)
+	}
+
+	const addBots = () => {
+		socket.fillWithBots(gameId)
 	}
 
 	const joinGame = async () => {
@@ -112,11 +119,25 @@ const Room: React.FC = () => {
 							<Divider orientation="vertical" size={5} />
 						)}
 
+						{/* Add Bots Button */}
+						{isHost && (socketStore?.game?.players?.length || 0) < 4 && (
+							<Button
+								variant="contained"
+								color="secondary"
+								onClick={addBots}
+								startIcon={<PersonAddIcon />}
+								style={{ marginLeft: 16 }}
+							>
+								ADD BOTS
+							</Button>
+						)}
+
 						<Button
 							variant="contained"
 							color="primary"
 							onClick={toggleReady}
 							startIcon={socket?.currentPlayer?.ready ? <CancelIcon /> : <ReadyIcon />}
+							style={{ marginLeft: 16 }}
 						>
 							{socket?.currentPlayer?.ready ? "CANCEL" : "GET READY"}
 						</Button>
@@ -166,11 +187,16 @@ const Room: React.FC = () => {
 							spacing={2}
 						>
 							{socketStore?.game?.players?.map(player => (
-								<Grid item>
+								<Grid item key={player.id}>
 									<PlayerItem
 										name={player.name}
 										ready={player.ready}
 										playerId={player.id}
+										onKick={
+											isHost && player.id !== socket?.currentPlayer?.id
+												? () => socket.kickPlayer(gameId, player.id)
+												: undefined
+										}
 									/>
 								</Grid>
 							))}

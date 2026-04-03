@@ -15,7 +15,7 @@ export type PlayerState =
 "Blocked" |
 "BuyCards"
 
-export type PlayerStatus = "online" | "offline" | "afk"
+export type PlayerStatus = "online" | "offline" | "afk" | "bot"
 
 export type PlayerData = Player & {
 	handCards: CardData[]
@@ -23,6 +23,7 @@ export type PlayerData = Player & {
 	ready: boolean
 	isCurrentRoundPlayer: boolean
 	canBuyCard: boolean
+	canPass?: boolean
 }
 
 export type CurrentPlayerGameStatus = "uno" | "winner" | "afk"

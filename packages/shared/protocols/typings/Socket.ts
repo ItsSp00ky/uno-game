@@ -15,6 +15,9 @@ export type SocketServerEvents =
 "ChangePlayerStatus" |
 "ToggleReady" |
 "ForceSelfDisconnect" |
+"PassTurn" |
+"FillWithBots" |
+"KickPlayer" |
 "disconnect"
 
 export type SocketClientEvents =
@@ -49,6 +52,12 @@ export type ChangePlayerStatusEventInput = { gameId: string, playerStatus: Playe
 export type ToggleReadyEventInput = { gameId: string }
 
 export type ForceSelfDisconnectEventInput = { gameId: string }
+
+export type PassTurnEventInput = { gameId: string }
+
+export type FillWithBotsEventInput = { gameId: string }
+
+export type KickPlayerEventInput = { gameId: string, playerId: string }
 
 export type PlayerJoinedEventData = { player: PlayerData }
 
@@ -87,6 +96,7 @@ export type PlayerCardUsabilityConsolidatedEventData = {
 		id: string
 		isCurrentRoundPlayer: boolean
 		canBuyCard: boolean
+		canPass?: boolean
 		handCards: Array<{
 			id: string
 			canBeUsed: boolean

@@ -96,6 +96,63 @@ const useStyles = makeStyles(theme => ({
 			}),
 		},
 	},
+	passTurnButton: {
+		backgroundColor: colors.palette.red1,
+		color: colors.grayScale[15],
+		boxShadow: "0 0 9px #D34141",
+		transition: theme.transitions.create("all", {
+			duration: theme.transitions.duration.standard,
+		}),
+		"&:hover": {
+			backgroundColor: colors.palette.red1,
+			color: colors.grayScale[15],
+			boxShadow: "0 0 9px #D34141",
+			opacity: 0.9,
+			transition: theme.transitions.create("all", {
+				duration: theme.transitions.duration.standard,
+			}),
+		},
+	},
+	directionArrow: {
+		position: "absolute",
+		top: "50%",
+		left: "50%",
+		width: 300,
+		height: 300,
+		marginLeft: -150,
+		marginTop: -150,
+		color: "rgba(255, 255, 255, 0.05)",
+		zIndex: 0,
+		pointerEvents: "none",
+		[theme.breakpoints.down("sm")]: {
+			width: 180,
+			height: 180,
+			marginLeft: -90,
+			marginTop: -90,
+		},
+	},
+	directionArrowClockwise: {
+		animation: "$spinClockwise 15s linear infinite",
+	},
+	directionArrowCounterClockwise: {
+		animation: "$spinCounterclockwise 15s linear infinite",
+	},
+	"@keyframes spinClockwise": {
+		"0%": {
+			transform: "rotate(0deg)",
+		},
+		"100%": {
+			transform: "rotate(360deg)",
+		},
+	},
+	"@keyframes spinCounterclockwise": {
+		"0%": {
+			transform: "rotate(0deg) scaleX(-1)",
+		},
+		"100%": {
+			transform: "rotate(-360deg) scaleX(-1)",
+		},
+	},
 }))
 
 export default useStyles
