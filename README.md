@@ -11,25 +11,13 @@
 		<img alt="lerna" src="https://img.shields.io/badge/maintained%20with-lerna-cc00ff.svg" alt="maintained with lerna"/>
 	</a>
 	<a href="https://github.com/microsoft/TypeScript">
-		<img alt="typescript" src="https://camo.githubusercontent.com/41c68e9f29c6caccc084e5a147e0abd5f392d9bc/68747470733a2f2f62616467656e2e6e65742f62616467652f547970655363726970742f7374726963742532302546302539462539322541412f626c7565">
+		<img alt="typescript" src="https://img.shields.io/badge/TypeScript-3.x-3178C6?logo=typescript&logoColor=white">
 	</a>
-	<a href="https://github.com/guilhermebkel/uno-game">
-		<img alt="mit license" src="https://img.shields.io/github/license/guilhermebkel/uno-game?color=0051ff" />
-	</a>
-</p>
-<p align="center">
-	<a href="https://github.com/guilhermebkel/uno-game">
-		<img alt="unoenty build" src="https://github.com/guilhermebkel/uno-game/workflows/Unoenty%20CI/badge.svg" />
-	</a>
-	<a href="https://github.com/guilhermebkel/uno-game">
-		<img alt="unapy build" src="https://github.com/guilhermebkel/uno-game/workflows/Unapy%20CI/badge.svg" />
-	</a>
+	<img alt="private repository" src="https://img.shields.io/badge/repo-private-444444" />
 </p>
 
 <p align="center">
 	<img src="./assets/main_preview.gif" alt="UNO Game Preview" />
-	<br></br>
-	<a href="https://uno.guilherr.me">Click here to play this game</a>
 </p>
 
 ## 📌 Overview
@@ -39,7 +27,7 @@ A real-time multiplayer UNO card game built as a monorepo. Create a room, invite
 ### Highlights
 
 - 🎮 **Real-time multiplayer** — play with 2–8 players via WebSockets
-- 🤖 **Bot Matchmaking** — instantly spawn up to 3 AI-controlled opponents for solo test sessions or filling remaining lobby slots
+- 🤖 **Bot Matchmaking** — instantly spawn up to 3 AI-controlled opponents (bot fill targets 4 total seats; human joins still scale to 8)
 - 🃏 **Full UNO rules** — Exact standard 108-card deck size, Draw 2/4 stacking, true "Hand Locking" draw system, color changes, reverse, skip, UNO call
 - 🔄 **Direction Ring Visuals** — Dynamic, glowing SVG arrow ring tracking the live game direction and turn flow
 - 🧩 **Per-game Rule Sets** — Choose rules when creating a game (`Basic` active now, additional modes scaffolded as placeholders)
@@ -69,6 +57,35 @@ This project is organized as a **Lerna monorepo** with three packages:
 
 ## 🚀 Getting Started
 
+### Laptop Setup Checklist (Windows)
+
+Install these first:
+
+1. **Git** (for cloning)
+2. **Node.js 18 LTS** (recommended for this project on Windows)
+3. **VS Code** (recommended editor)
+4. **Cloudflare Tunnel client** (`cloudflared`) for free online sharing
+5. *(Optional)* **Docker Desktop** if you want local Redis via `docker-compose`
+
+Quick install commands (PowerShell as Administrator):
+
+```powershell
+winget install --id Git.Git -e
+winget install --id OpenJS.NodeJS.LTS -e
+winget install --id Microsoft.VisualStudioCode -e
+winget install --id Cloudflare.cloudflared -e
+```
+
+Verify installs:
+
+```powershell
+git --version
+node --version
+npm --version
+code --version
+& "C:\Program Files (x86)\cloudflared\cloudflared.exe" --version
+```
+
 ### Prerequisites
 
 - **Node.js** ≥ 10.3 (recommend Node 14 for best compatibility)
@@ -81,7 +98,7 @@ This project is organized as a **Lerna monorepo** with three packages:
 
 **1. Clone and install dependencies:**
 ```bash
-git clone https://github.com/guilhermebkel/uno-game.git
+git clone <your-private-repository-url>
 cd uno-game
 
 # Install root + package dependencies
@@ -100,6 +117,13 @@ npx lerna link
 # Copy example env files
 cp packages/unapy/.env.example packages/unapy/.env
 cp packages/unoenty/.env.example packages/unoenty/.env
+```
+
+Windows PowerShell equivalent:
+
+```powershell
+Copy-Item "packages/unapy/.env.example" "packages/unapy/.env"
+Copy-Item "packages/unoenty/.env.example" "packages/unoenty/.env"
 ```
 
 **3. Start Redis (optional):**
@@ -206,52 +230,33 @@ npm run build:unapy
 npm run build:unoenty
 ```
 
-## 👏 Contributing
+## 🤝 Project Notes
 
-1. Fork and clone this repository
-2. Create a new branch following **Git Karma** conventions (e.g., `feat/my-awesome-feature`)
-3. Make your changes and ensure they build without errors
-4. Submit a PR with a clear description of your changes
+- This is maintained as a private project.
+- Update this README and `AI.md` whenever game rules, networking flow, or run commands change.
+- For AI assistants and deeper technical context, see [AI.md](./AI.md).
 
-> 📖 **For AI assistants & deep technical context**, see [AI.md](./AI.md) — it covers architecture, game logic internals, state management, and known design decisions.
+## ✅ Daily Run (Quick Commands)
 
-## 🗺️ Roadmap
+From a fresh terminal session:
 
-See our [**Project Board**](https://github.com/guilhermebkel/uno-game/projects/1) for planned features and improvements. All ideas and bug reports are welcome!
+1. **Backend**
+```powershell
+cd C:\Users\Spooky\Code\uno-game\packages\unapy
+npm run dev
+```
 
-## 📄 License
+2. **Frontend**
+```powershell
+cd C:\Users\Spooky\Code\uno-game\packages\unoenty
+$env:NODE_OPTIONS="--openssl-legacy-provider"
+$env:PORT="4000"
+npx craco start
+```
 
-This project is licensed under the MIT License — see the [LICENSE](./LICENSE) file for details.
+3. **(Optional) Share frontend online**
+```powershell
+& "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel --url http://localhost:4000
+```
 
-## 💫 Contributors
-
-Thanks to all the people who contributed on this project!
-
-<table>
-  <tr>
-    <td align="center">
-			<a
-				href="https://github.com/ArcaneDiver" 
-				title="ArcaneDiver"
-			>
-				<img src="https://avatars.githubusercontent.com/ArcaneDiver" width="100px;" alt=""/>
-				<br />
-				<sub>
-					<b>Michele Della Mea</b>
-				</sub>
-			</a>
-		</td>
-		<td align="center">
-			<a
-				href="https://github.com/lcscout" 
-				title="lcscout"
-			>
-				<img src="https://avatars.githubusercontent.com/lcscout" width="100px;" alt=""/>
-				<br />
-				<sub>
-					<b>Lucas Coutinho de Oliveira</b>
-				</sub>
-			</a>
-		</td>
-  </tr>
-</table>
+4. Open locally: `http://localhost:4000`

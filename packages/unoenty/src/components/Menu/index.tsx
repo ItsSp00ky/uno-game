@@ -12,7 +12,6 @@ import {
 import {
 	SportsEsports as GameIcon,
 	ExitToApp as LogoutIcon,
-	GitHub as GithubIcon,
 	Menu as MenuIcon,
 	ArrowBackIos as BackIcon,
 } from "@material-ui/icons"
@@ -228,16 +227,6 @@ const Menu: React.FC = () => {
 						</Button>
 
 						<Divider orientation="horizontal" size={1} />
-
-						<Button
-							variant="text"
-							href="https://github.com/guilhermebkel/uno-game"
-							target="_blank"
-							startIcon={<GithubIcon />}
-							className={classes.githubButton}
-						>
-							Give us a star on Github
-						</Button>
 					</Grid>
 				</Grid>
 			</Drawer>
