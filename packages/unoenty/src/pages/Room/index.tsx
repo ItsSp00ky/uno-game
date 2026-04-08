@@ -53,6 +53,10 @@ const Room: React.FC = () => {
 
 	const joinGame = async () => {
 		const game = await socket.joinGame(gameId)
+		if (!game) {
+			history.push("/")
+			return
+		}
 
 		if (game.status === "playing") {
 			history.push(`/${gameId}/table`)

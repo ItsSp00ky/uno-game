@@ -324,6 +324,37 @@ The current player is always at **"bottom"**.
 
 12. **Public Card Asset URL Required for Remote Play** — Card image URLs are embedded server-side from `STATIC_FILES_BASE_URL` (`CardService.buildCardPictureSrc`). For phone/remote users, this must be publicly reachable (for example a Cloudflare tunnel URL), not `localhost`.
 
+13. **Per-player Card Back Selection** — Custom back images are loaded from `unapy/src/Assets/card-backs/custom` and exposed through `/card-backs`. Players can choose a back image in the sidebar; backend stores `player.cardBackSrc` per game and broadcasts `PlayerCardBackChanged`.
+14. **Remote/Mobile Asset URL Normalization** — Frontend `SocketStore` normalizes incoming card/card-back asset URLs to `REACT_APP_API_URL/assets` to avoid broken images when backend payloads contain `localhost` while clients are on phone/tunnel.
+
+---
+
+## Custom Card Backs + Phone Checklist
+
+### Storage + format
+
+- Store custom back images in `packages/unapy/src/Assets/card-backs/custom/`
+- Recommended size: `400 x 620` (ratio `1:1.55`)
+- Supported formats: `.png`, `.jpg`, `.jpeg`, `.webp`
+- Restart backend after adding/removing files
+
+### Runtime behavior
+
+- Menu selector is text-only (file names), no preview UI
+- Card-back list is loaded HTTP-first from `GET /card-backs`, with socket fallback
+- Selected back is visible on unrevealed cards to other players
+
+### Remote/tunnel requirements (critical)
+
+- `packages/unoenty/.env`:
+  - `REACT_APP_API_URL=https://<backend-tunnel-url>`
+- `packages/unapy/.env`:
+  - `STATIC_FILES_BASE_URL=https://<backend-tunnel-url>/assets`
+- For phone testing, run **two tunnels**:
+  - backend tunnel to `localhost:5000`
+  - frontend tunnel to `localhost:4000` (or chosen frontend port)
+- If either env uses `localhost`, mobile clients can hang on login or fail to show hand/stack images
+
 ---
 
 ## Bug Fix History
@@ -370,3 +401,7 @@ The current player is always at **"bottom"**.
 | **Restart + Bot First Turn Fix** | Added start-of-round bot/AFK computed play dispatch and null-safe guards around restart/round transitions. | `GameService.ts` |
 | **Winning on Last Multi-card Play** | Game now ends immediately when a player reaches zero cards after `putCard`, including combo plays. | `GameService.ts` |
 | **Drawer Toggle Reliability** | Sidebar now uses a temporary drawer mode so the hamburger button consistently opens/closes on all layouts. | `components/Menu/index.tsx` |
+| **Custom Card Backs** | Added per-player card back selection from local hosted assets with shared visibility for unrevealed cards. | `CardBackService.ts`, `CardBackController.ts`, `Menu/index.tsx`, `CardDeckPlaceholder/index.tsx`, shared socket/player typings |
+| **Card Back UX Reliability** | Card-back options now load via HTTP-first (`/card-backs`) with socket fallback + timeout; selector is text-only and menu list renders inside drawer (`disablePortal`). | `components/Menu/index.tsx` |
+| **Phone/Tunnel Login + Assets** | Documented and enforced dual-tunnel setup (frontend + backend), with `.env` expectations for remote play. | `README.md`, `.env` usage |
+| **Mobile Card Rendering Fixes** | Normalized URLs for initial game state and live events (`PlayerPutCard`, `PlayerChoseCardColor`, `PlayerBoughtCard`, `PlayerCardBackChanged`) so hand/stack cards render on phones. | `store/Socket.tsx` |

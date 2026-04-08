@@ -32,12 +32,14 @@ import {
 	PlayerCardUsabilityConsolidatedEventData,
 	GameAmountToBuyChangedEventData,
 	PlayerStatusChangedEventData,
+	PlayerCardBackChangedEventData,
 } from "@uno-game/protocols"
 
 import GameRepository from "@/Repositories/GameRepository"
 
 import CryptUtil from "@/Utils/CryptUtil"
 import GameRulesService from "@/Services/GameRulesService"
+import CardBackService from "@/Services/CardBackService"
 
 class GameService {
 	async setupGame (playerId: string, chatId: string, selectedRuleSetId?: Game["ruleSetId"]): Promise<Game> {
@@ -105,6 +107,9 @@ class GameService {
 
 	async joinGame (gameId: string, playerId: string): Promise<Game> {
 		const game = await this.getGame(gameId)
+		if (!game) {
+			return null as unknown as Game
+		}
 
 		const player = game?.players?.find(player => player.id === playerId)
 
@@ -119,6 +124,7 @@ class GameService {
 				id: playerId,
 				name: playerData.name,
 				handCards: [],
+				cardBackSrc: undefined,
 				status: "online",
 				ready: false,
 				isCurrentRoundPlayer: false,
@@ -355,6 +361,7 @@ class GameService {
 				id: botId,
 				name: botName,
 				handCards: [],
+				cardBackSrc: undefined,
 				status: "bot",
 				ready: true,
 				isCurrentRoundPlayer: false,
@@ -502,6 +509,43 @@ class GameService {
 		game.players = await this.buildPlayersWithChangedPlayerStatus(game, playerId, playerStatus)
 
 		await this.setGameData(gameId, game)
+	}
+
+	async changePlayerCardBack (gameId: string, playerId: string, cardBackFileName: string): Promise<void> {
+		const game = await this.getGame(gameId)
+		if (!game) {
+			return
+		}
+
+		const player = game.players.find(playerItem => playerItem.id === playerId)
+		if (!player) {
+			return
+		}
+
+		const cardBackExists = await CardBackService.cardBackFileExists(cardBackFileName)
+		if (!cardBackExists) {
+			return
+		}
+
+		const cardBackSrc = CardBackService.buildCardBackSrc(cardBackFileName)
+
+		game.players = game.players.map(playerItem => {
+			if (playerItem.id === playerId) {
+				return {
+					...playerItem,
+					cardBackSrc,
+				}
+			}
+
+			return playerItem
+		})
+
+		await this.setGameData(gameId, game)
+
+		this.emitGameEvent<PlayerCardBackChangedEventData>(game.id, "PlayerCardBackChanged", {
+			playerId,
+			cardBackSrc,
+		})
 	}
 
 	emitGameEvent<Data extends unknown> (gameId: string, event: GameEvents, data: Data) {
@@ -795,6 +839,7 @@ class GameService {
 				id: playerId,
 				name: playerData.name,
 				handCards: [],
+				cardBackSrc: undefined,
 				status: "online",
 				ready: false,
 				isCurrentRoundPlayer: false,

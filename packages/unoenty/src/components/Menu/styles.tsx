@@ -29,6 +29,25 @@ const useStyles = makeStyles(theme => ({
 		color: colors.grayScale[7],
 		padding: theme.spacing(0, PADDING),
 	},
+	cardBackSelectorContainer: {
+		padding: theme.spacing(0, PADDING),
+	},
+	cardBackPreviewContainer: {
+		padding: theme.spacing(1, PADDING, 0, PADDING),
+	},
+	cardBackPreviewTitle: {
+		color: colors.grayScale[7],
+		marginBottom: theme.spacing(1),
+	},
+	cardBackPreview: {
+		width: 70,
+		height: 70 * 1.55,
+		borderRadius: theme.spacing(1),
+		border: `1px solid ${colors.grayScale[7]}`,
+		backgroundSize: "cover",
+		backgroundPosition: "center",
+		backgroundRepeat: "no-repeat",
+	},
 	listItemIcon: {
 		color: colors.palette.black4,
 	},

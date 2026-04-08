@@ -8,6 +8,7 @@ import { Player, PlayerData, PlayerEvents, PlayerStatus } from "./Player"
 
 export type SocketServerEvents =
 "SetPlayerData" |
+"GetCardBacks" |
 "CreateGame" |
 "JoinGame" |
 "BuyCard" |
@@ -18,6 +19,7 @@ export type SocketServerEvents =
 "ForceSelfDisconnect" |
 "PassTurn" |
 "FillWithBots" |
+"ChangePlayerCardBack" |
 "KickPlayer" |
 "disconnect"
 
@@ -36,6 +38,9 @@ export type SocketEventHandler<ReceivedData extends unknown, ResponseData extend
 
 export type SetPlayerDataEventInput = { player: Player }
 export type SetPlayerDataEventResponse = { player: Player }
+
+export type GetCardBacksEventInput = unknown
+export type GetCardBacksEventResponse = { cardBacks: Array<{ fileName: string, src: string }> }
 
 export type CreateGameEventInput = { ruleSetId?: GameRuleSetId }
 export type CreateGameEventResponse = { gameId: string }
@@ -59,6 +64,8 @@ export type PassTurnEventInput = { gameId: string }
 
 export type FillWithBotsEventInput = { gameId: string }
 
+export type ChangePlayerCardBackEventInput = { gameId: string, cardBackFileName: string }
+
 export type KickPlayerEventInput = { gameId: string, playerId: string }
 
 export type PlayerJoinedEventData = { player: PlayerData }
@@ -76,6 +83,8 @@ export type PlayerUnoEventData = { playerId: string }
 export type GameEndedEventData = { gameId: string }
 
 export type PlayerStatusChangedEventData = { playerId: string, status: PlayerStatus }
+
+export type PlayerCardBackChangedEventData = { playerId: string, cardBackSrc: string }
 
 export type GameStartedEventData = { game: Game }
 

@@ -23,6 +23,7 @@ import {
 	NewMessageEventData,
 	PassTurnEventInput,
 	FillWithBotsEventInput,
+	ChangePlayerCardBackEventInput,
 	KickPlayerEventInput,
 } from "@uno-game/protocols"
 import { GameDeckLayoutPosition } from "@/utils/game"
@@ -40,6 +41,7 @@ type UseSocketResponse = {
 	buyCard: (gameId: string) => void
 	putCard: (gameId: string, cardIds: string[], selectedColor: CardColors) => void
 	passTurn: (gameId: string) => void
+	changePlayerCardBack: (gameId: string, cardBackFileName: string) => void
 	fillWithBots: (gameId: string) => void
 	kickPlayer: (gameId: string, playerId: string) => void
 	toggleOnlineStatus: (gameId: string) => void
@@ -128,6 +130,10 @@ const useSocket = (): UseSocketResponse => {
 			chat,
 		} = await SocketService.emit<JoinGameEventInput, JoinGameEventResponse>("JoinGame", { gameId })
 
+		if (!game || !chat) {
+			return null as unknown as Game
+		}
+
 		socketStore.setGameData(game)
 		socketStore.setChatData(chat)
 
@@ -163,6 +169,13 @@ const useSocket = (): UseSocketResponse => {
 
 	const fillWithBots = async (gameId: string) => {
 		await SocketService.emit<FillWithBotsEventInput, unknown>("FillWithBots", { gameId })
+	}
+
+	const changePlayerCardBack = async (gameId: string, cardBackFileName: string) => {
+		await SocketService.emit<ChangePlayerCardBackEventInput, unknown>("ChangePlayerCardBack", {
+			gameId,
+			cardBackFileName,
+		})
 	}
 
 	const kickPlayer = async (gameId: string, playerId: string) => {
@@ -293,6 +306,7 @@ const useSocket = (): UseSocketResponse => {
 		buyCard,
 		putCard,
 		passTurn,
+		changePlayerCardBack,
 		fillWithBots,
 		kickPlayer,
 		forceSelfDisconnect,

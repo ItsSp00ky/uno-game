@@ -23,6 +23,7 @@ export type GameEvents =
 "PlayerBoughtCard" |
 "PlayerCardUsabilityConsolidated" |
 "PlayerStatusChanged" |
+"PlayerCardBackChanged" |
 "GameAmountToBuyChanged"
 
 export type GameStatus =

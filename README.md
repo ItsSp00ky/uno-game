@@ -179,7 +179,7 @@ npx craco start
 
 To let friends join from outside your local network without opening router ports:
 
-1. Start backend (`unapy`) locally.
+1. Start backend (`unapy`) locally on `5000`.
 2. Run a backend tunnel (`cloudflared tunnel --url http://localhost:5000`) and copy the generated `https://*.trycloudflare.com` URL.
 3. Set backend asset base URL to that public endpoint in `packages/unapy/.env`:
    - `STATIC_FILES_BASE_URL=https://<your-backend-tunnel>/assets`
@@ -188,8 +188,24 @@ To let friends join from outside your local network without opening router ports
    - `REACT_APP_API_URL=https://<your-backend-tunnel>`
 6. Start frontend locally (with `NODE_OPTIONS=--openssl-legacy-provider` if needed).
 7. Run a frontend tunnel (`cloudflared tunnel --url http://localhost:3000` or `:4000`) and share that URL with friends.
+8. Keep both tunnel terminals open while testing.
 
 > If card images are invisible on phones, the most common cause is `STATIC_FILES_BASE_URL` still pointing to `localhost`.
+> If login hangs on phones after entering a name, the most common cause is `REACT_APP_API_URL` still pointing to `localhost`.
+
+### Custom card backs (per player)
+
+Each player can choose their own card-back image (visible on unrevealed cards only).
+
+1. Put your images in:
+   - `packages/unapy/src/Assets/card-backs/custom/`
+2. Use standard size:
+   - `400 x 620` pixels (ratio `1:1.55`)
+3. Restart backend (`unapy`) after adding files.
+4. Open the in-game sidebar menu and choose a card back from **CARD BACK**.
+5. Selector is text-only (file names), preview is intentionally disabled.
+
+Supported formats: `.png`, `.jpg`, `.jpeg`, `.webp`.
 
 #### Your personal Windows quick commands
 

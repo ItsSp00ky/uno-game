@@ -213,6 +213,8 @@ const CardDeckPlaceholder: React.FC<CardDeckPlaceholderProps> = (props) => {
 									top: -y,
 									zIndex: index,
 									left: x,
+									backgroundImage: player.cardBackSrc ? `url(${player.cardBackSrc})` : undefined,
+									backgroundPosition: "center",
 								}}
 							>
 								{showPlaceholder && (

@@ -68,6 +68,10 @@ const Table: React.FC = () => {
 
 	const joinGame = async () => {
 		const game = await socket.joinGame(gameId)
+		if (!game) {
+			history.push("/")
+			return
+		}
 
 		const currentPlayer = socket.getCurrentPlayer(game.players)
 		const winnerPlayer = socket.getWinner(game)

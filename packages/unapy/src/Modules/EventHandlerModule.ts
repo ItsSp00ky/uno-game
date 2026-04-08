@@ -6,11 +6,14 @@ import ChatService from "@/Services/ChatService"
 import PlayerService from "@/Services/PlayerService"
 import ClientService from "@/Services/ClientService"
 import SocketService from "@/Services/SocketService"
+import CardBackService from "@/Services/CardBackService"
 
 import {
 	Player,
 	SetPlayerDataEventInput,
 	SetPlayerDataEventResponse,
+	GetCardBacksEventInput,
+	GetCardBacksEventResponse,
 	CreateGameEventInput,
 	CreateGameEventResponse,
 	JoinGameEventInput,
@@ -23,6 +26,7 @@ import {
 	ForceSelfDisconnectEventInput,
 	PassTurnEventInput,
 	FillWithBotsEventInput,
+	ChangePlayerCardBackEventInput,
 	KickPlayerEventInput,
 } from "@uno-game/protocols"
 
@@ -42,6 +46,18 @@ class EventHandlerModule {
 
 				return {
 					player: playerData,
+				}
+			})
+
+			SocketService.on<GetCardBacksEventInput, GetCardBacksEventResponse>(client, "GetCardBacks", async () => {
+				const cardBackFileNames = await CardBackService.getCardBackFileNames()
+				const cardBacks = cardBackFileNames.map(fileName => ({
+					fileName,
+					src: CardBackService.buildCardBackSrc(fileName),
+				}))
+
+				return {
+					cardBacks,
 				}
 			})
 
@@ -67,6 +83,13 @@ class EventHandlerModule {
 
 			SocketService.on<JoinGameEventInput, JoinGameEventResponse>(client, "JoinGame", async ({ gameId }) => {
 				const game = await GameService.joinGame(gameId, playerData.id)
+				if (!game) {
+					return {
+						game: null as unknown as JoinGameEventResponse["game"],
+						chat: null as unknown as JoinGameEventResponse["chat"],
+					}
+				}
+
 				const chat = await ChatService.joinChat(game.chatId)
 
 				SocketService.setupListener(client, "chat", game.chatId)
@@ -113,6 +136,10 @@ class EventHandlerModule {
 
 			SocketService.on<FillWithBotsEventInput, unknown>(client, "FillWithBots", async ({ gameId }) => {
 				await GameService.fillWithBots(gameId)
+			})
+
+			SocketService.on<ChangePlayerCardBackEventInput, unknown>(client, "ChangePlayerCardBack", async ({ gameId, cardBackFileName }) => {
+				await GameService.changePlayerCardBack(gameId, playerData.id, cardBackFileName)
 			})
 
 			SocketService.on<KickPlayerEventInput, unknown>(client, "KickPlayer", async ({ gameId, playerId }) => {

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState } from "react"
 
 import SocketService from "@/services/socket"
+import serverConfig from "@/config/server"
 
 import useDidMount from "@/hooks/useDidMount"
 
@@ -26,6 +27,9 @@ import {
 	PlayerCardUsabilityConsolidatedEventData,
 	GameAmountToBuyChangedEventData,
 	PlayerStatusChangedEventData,
+	PlayerCardBackChangedEventData,
+	CardData,
+	PlayerData,
 } from "@uno-game/protocols"
 
 export interface SocketContextData {
@@ -44,6 +48,55 @@ const SocketStore = createContext<SocketContextData>({} as SocketContextData)
 
 export const useSocketStore = (): SocketContextData => useContext(SocketStore)
 
+const normalizeAssetUrl = (assetSrc?: string): string => {
+	if (!assetSrc) {
+		return ""
+	}
+
+	const apiBaseUrl = (serverConfig.apiUrl || "").replace(/\/$/, "")
+
+	if (!apiBaseUrl) {
+		return assetSrc
+	}
+
+	if (assetSrc.startsWith("/assets/")) {
+		return `${apiBaseUrl}${assetSrc}`
+	}
+
+	return assetSrc
+		.replace("http://localhost:5000/assets", `${apiBaseUrl}/assets`)
+		.replace("https://localhost:5000/assets", `${apiBaseUrl}/assets`)
+}
+
+const normalizeCard = (card: CardData): CardData => {
+	const normalizedPossibleColors = card.possibleColors ? {
+		...card.possibleColors,
+		red: normalizeAssetUrl(card.possibleColors.red),
+		blue: normalizeAssetUrl(card.possibleColors.blue),
+		yellow: normalizeAssetUrl(card.possibleColors.yellow),
+		green: normalizeAssetUrl(card.possibleColors.green),
+		black: normalizeAssetUrl(card.possibleColors.black),
+	} : undefined
+
+	return {
+		...card,
+		src: normalizeAssetUrl(card.src),
+		possibleColors: normalizedPossibleColors,
+	}
+}
+
+const normalizePlayer = (player: PlayerData): PlayerData => ({
+	...player,
+	cardBackSrc: normalizeAssetUrl(player.cardBackSrc),
+	handCards: (player.handCards || []).map(normalizeCard),
+})
+
+const normalizeGameAssets = (gameData: Game): Game => ({
+	...gameData,
+	usedCards: (gameData.usedCards || []).map(normalizeCard),
+	players: (gameData.players || []).map(normalizePlayer),
+})
+
 const SocketProvider: React.FC = (props) => {
 	const { children } = props
 
@@ -61,7 +114,7 @@ const SocketProvider: React.FC = (props) => {
 	const setGameData = (data: Game) => {
 		setGame(lastState => ({
 			...(lastState || {}),
-			...(data || {}),
+			...normalizeGameAssets(data || {} as Game),
 		}))
 	}
 
@@ -178,31 +231,33 @@ const SocketProvider: React.FC = (props) => {
 					return lastState
 				}
 
-				const updatedData = { ...lastState }
-
-				cards
+				const normalizedIncomingCards = cards.map(normalizeCard)
+				const existingCardIds = new Set(lastState.usedCards.map(card => card.id))
+				const cardsToPrepend = [...normalizedIncomingCards]
+					.filter(card => !existingCardIds.has(card.id))
 					.reverse()
-					.forEach(card => {
-						const cardExists = updatedData.usedCards.some(({ id }) => id === card.id)
 
-						if (!cardExists) {
-							updatedData.usedCards.unshift(card)
-						}
-					})
+				const usedCards = [...cardsToPrepend, ...lastState.usedCards]
 
-				updatedData.players = updatedData.players.map(player => {
-					if (player.id === playerId) {
-						player.handCards = player.handCards.filter(handCard => {
-							const handCardIsPutCard = cards.some(({ id }) => id === handCard.id)
-
-							return !handCardIsPutCard
-						})
+				const players = lastState.players.map(player => {
+					if (player.id !== playerId) {
+						return player
 					}
 
-					return player
+					return {
+						...player,
+						handCards: player.handCards.filter(handCard => {
+							const handCardIsPutCard = cards.some(({ id }) => id === handCard.id)
+							return !handCardIsPutCard
+						}),
+					}
 				})
 
-				return updatedData
+				return {
+					...lastState,
+					usedCards,
+					players,
+				}
 			})
 		})
 	}
@@ -220,7 +275,7 @@ const SocketProvider: React.FC = (props) => {
 					const card = cards.find(({ id }) => id === usedCard.id)
 
 					if (card) {
-						return card
+						return normalizeCard(card)
 					}
 
 					return usedCard
@@ -238,23 +293,26 @@ const SocketProvider: React.FC = (props) => {
 					return lastState
 				}
 
-				const updatedData = { ...lastState }
-
-				updatedData.players = updatedData.players.map(player => {
-					if (player.id === playerId) {
-						cards.forEach(card => {
-							const cardExists = player.handCards.some(({ id }) => id === card.id)
-
-							if (!cardExists) {
-								player.handCards.unshift(card)
-							}
-						})
+				const players = lastState.players.map(player => {
+					if (player.id !== playerId) {
+						return player
 					}
 
-					return player
+					const existingCardIds = new Set(player.handCards.map(card => card.id))
+					const cardsToAdd = cards
+						.map(normalizeCard)
+						.filter(card => !existingCardIds.has(card.id))
+
+					return {
+						...player,
+						handCards: [...cardsToAdd, ...player.handCards],
+					}
 				})
 
-				return updatedData
+				return {
+					...lastState,
+					players,
+				}
 			})
 		})
 	}
@@ -266,31 +324,40 @@ const SocketProvider: React.FC = (props) => {
 					return lastState
 				}
 
-				const updatedData = { ...lastState }
-
-				updatedData.players = updatedData.players.map(player => {
+				const updatedPlayers = lastState.players.map(player => {
 					const consolidatedPlayer = players.find(({ id }) => id === player.id)
 
 					if (consolidatedPlayer) {
-						player.isCurrentRoundPlayer = consolidatedPlayer.isCurrentRoundPlayer
-						player.canBuyCard = consolidatedPlayer.canBuyCard
-
-						player.handCards = player.handCards.map(handCard => {
+						const updatedHandCards = player.handCards.map(handCard => {
 							const consolidatedHandCard = consolidatedPlayer.handCards.find(({ id }) => id === handCard.id)
 
 							if (consolidatedHandCard) {
-								handCard.canBeCombed = consolidatedHandCard.canBeCombed
-								handCard.canBeUsed = consolidatedHandCard.canBeUsed
+								return {
+									...handCard,
+									canBeCombed: consolidatedHandCard.canBeCombed,
+									canBeUsed: consolidatedHandCard.canBeUsed,
+								}
 							}
 
 							return handCard
 						})
+
+						return {
+							...player,
+							isCurrentRoundPlayer: consolidatedPlayer.isCurrentRoundPlayer,
+							canBuyCard: consolidatedPlayer.canBuyCard,
+							canPass: consolidatedPlayer.canPass,
+							handCards: updatedHandCards,
+						}
 					}
 
 					return player
 				})
 
-				return updatedData
+				return {
+					...lastState,
+					players: updatedPlayers,
+				}
 			})
 		})
 	}
@@ -302,17 +369,45 @@ const SocketProvider: React.FC = (props) => {
 					return lastState
 				}
 
-				const updatedData = { ...lastState }
-
-				updatedData.players = updatedData.players.map(player => {
+				const players = lastState.players.map(player => {
 					if (player.id === playerId) {
-						player.status = status
+						return {
+							...player,
+							status,
+						}
 					}
 
 					return player
 				})
 
-				return updatedData
+				return {
+					...lastState,
+					players,
+				}
+			})
+		})
+	}
+
+	const onPlayerCardBackChanged = () => {
+		SocketService.on<PlayerCardBackChangedEventData>("PlayerCardBackChanged", ({ playerId, cardBackSrc }) => {
+			setGame(lastState => {
+				if (!lastState?.id) {
+					return lastState
+				}
+
+				return {
+					...lastState,
+					players: lastState.players.map(player => {
+						if (player.id === playerId) {
+							return {
+								...player,
+								cardBackSrc: normalizeAssetUrl(cardBackSrc),
+							}
+						}
+
+						return player
+					}),
+				}
 			})
 		})
 	}
@@ -324,11 +419,13 @@ const SocketProvider: React.FC = (props) => {
 					return lastState
 				}
 
-				const updatedData = { ...lastState }
-
-				updatedData.currentCardCombo.amountToBuy = amountToBuy
-
-				return updatedData
+				return {
+					...lastState,
+					currentCardCombo: {
+						...lastState.currentCardCombo,
+						amountToBuy,
+					},
+				}
 			})
 		})
 	}
@@ -358,6 +455,7 @@ const SocketProvider: React.FC = (props) => {
 		onPlayerBoughtCard()
 		onPlayerCardUsabilityConsolidated()
 		onPlayerStatusChanged()
+		onPlayerCardBackChanged()
 		onGameAmountToBuyChanged()
 	}
 
