@@ -167,6 +167,23 @@ To let friends join from outside your local network without opening router ports
 
 > If card images are invisible on phones, the most common cause is `STATIC_FILES_BASE_URL` still pointing to `localhost`.
 
+#### Your personal Windows quick commands
+
+Use these exact commands when you want to host for friends:
+
+```powershell
+cd C:\Users\Spooky\Code\uno-game\packages\unoenty
+$env:NODE_OPTIONS="--openssl-legacy-provider"
+$env:PORT="4000"
+npx craco start
+```
+
+In another terminal, expose the frontend:
+
+```powershell
+& "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel --url http://localhost:4000
+```
+
 ## 🎮 How to Play
 
 1. Open the app and enter your name
