@@ -39,6 +39,7 @@ uno-game/
 │   │   │   └── typings/
 │   │   │       ├── Card.ts      # CardData, CardColors, CardTypes, CurrentCardCombo
 │   │   │       ├── Game.ts      # Game, GameEvents, GameStatus, GameDirection
+│   │   │       ├── GameRules.ts # GameRuleSetId, GameRuleSetDefinition
 │   │   │       ├── Player.ts    # PlayerData, PlayerStatus, PlayerState
 │   │   │       ├── Socket.ts    # All socket event input/response types
 │   │   │       ├── Chat.ts      # Chat, ChatMessage
@@ -63,6 +64,7 @@ uno-game/
 │   │       │   └── GameRoundRepository.ts  # Round timer storage
 │   │       ├── Services/        # ★ Core business logic ★
 │   │       │   ├── GameService.ts       # Main game engine (847 lines)
+│   │       │   ├── GameRulesService.ts  # Per-game ruleset resolver + catalog
 │   │       │   ├── CardService.ts       # Card deck generation & shuffling
 │   │       │   ├── GameRoundService.ts  # Round timer management
 │   │       │   ├── PlayerService.ts     # Player data management
@@ -70,6 +72,9 @@ uno-game/
 │   │       │   ├── ClientService.ts     # Client notification dispatch
 │   │       │   ├── SocketService.ts     # Socket.IO wrapper
 │   │       │   └── *StoreService.ts     # Storage backends (memory, Redis, cache)
+│   │       ├── Rules/           # Rule-set specific server logic (scaffold)
+│   │       │   ├── basic/
+│   │       │   └── placeholders/
 │   │       └── Utils/
 │   │           ├── ArrayUtil.ts     # Fisher-Yates shuffle
 │   │           ├── NumberUtil.ts    # Circular index wrapping
@@ -134,11 +139,19 @@ uno-game/
 **Event lifecycle for playing a card:**
 1. Player drags card to stack → `CardStack.handleDrop()` fires
 2. If wild card → `ChooseColorModal.open()` prompts for color
-3. `useSocket.putCard()` emits `"PutCard"` event + optimistically updates local state
+3. `useSocket.putCard()` emits `"PutCard"` event (no optimistic local mutation)
 4. `EventHandlerModule` receives → calls `GameService.putCard()`
 5. `GameService` validates move, applies card effects, rotates turn
 6. Server broadcasts: `PlayerPutCard`, `PlayerChoseCardColor`, `PlayerCardUsabilityConsolidated`, etc.
 7. `SocketStore` listeners update game state → React re-renders
+
+**Event lifecycle for game creation (ruleset-aware):**
+1. Player clicks **Create New Game** on dashboard
+2. Client opens a rule set picker (currently only `basic` enabled)
+3. Frontend emits `CreateGame` with `{ ruleSetId }`
+4. `EventHandlerModule` forwards selected ruleset to `GameService.setupGame`
+5. `GameRulesService` resolves invalid/disabled selections back to `basic`
+6. Created game persists `game.ruleSetId`, isolated to that game instance
 
 ---
 
@@ -281,6 +294,7 @@ The current player is always at **"bottom"**.
 | Add new socket event | `shared/protocols/typings/Socket.ts` → `EventHandlerModule.ts` → `SocketStore` listener |
 | Change player count | `GameService.setupGame()` (`maxPlayers`) |
 | Modify round timer | `GameService.setupGame()` (`maxRoundDurationInSeconds`), `GameRoundService.ts` |
+| Direction indicator | `CardStack/DirectionIndicator.tsx` |
 | Add UI component | `unoenty/src/components/` + register in `components/index.ts` |
 | Change card shuffle | `ArrayUtil.ts` (Fisher-Yates implementation) |
 
@@ -292,9 +306,9 @@ The current player is always at **"bottom"**.
 
 2. **Card recycling** — When `usedCards` exceeds 10, overflow cards are shuffled back into `availableCards`. Wild cards get their `selectedColor` reset and image reverted to the black variant.
 
-4. **Optimistic UI** — `useSocket.putCard()` immediately removes played cards from the local player's hand before server confirmation, then the server sends `PlayerCardUsabilityConsolidated` to reconcile.
+4. **Authoritative Server State** — Card plays are validated and applied on the backend first. The frontend waits for socket events (`PlayerPutCard`, `PlayerCardUsabilityConsolidated`, etc.) instead of mutating hand/stack optimistically.
 
-5. **AFK auto-play** — After the round timer expires, `makeComputedPlay` recursively tries: find a usable card → play it, or buy a card → try again.
+5. **AFK Penalty (Draw + Skip)** — After the 30-second round timer expires, if the player is `"online"`, they are marked `"afk"`. The system then forces a `buyCard` and `passTurn`. This is a strict penalty; they do not get to play a card even if the drawn one is usable. If they already drew a card (`canPass: true`), it only triggers `passTurn`.
 
 6. **`craco` not `react-scripts`** — The frontend uses `craco` to override Create React App's config (specifically for path aliases via `tsconfig-paths`).
 
@@ -305,6 +319,10 @@ The current player is always at **"bottom"**.
 9. **`uuid` dependency** — Used in `CardService` but not explicitly listed in `unapy/package.json` dependencies. It works because it's hoisted from the root `node_modules`.
 
 10. **Strict Draw Mechanics (Keep or Play)** — As of the newest architecture logic iteration, clicking "BUY CARD" forces a 1-card draw. If the drawn card is illegal, the backend intercepts and automatically shifts the turn to the next player. If it is legal, the core triggers an immediate "Hand Lock", eliminating usability across all other cards the player holds, and replaces the "BUY CARD" visual frame with "PASS", giving the player the standardized ability to manually skip their turn if they prefer to retain the legally drawn card.
+
+11. **Per-game Rule Set (Scaffolded)** — Each game now carries `ruleSetId`; selection happens at creation time and affects only that game. `basic` is active, while `stacking-chaos`, `jump-in`, and `seven-zero` are placeholders for future isolated rule modules.
+
+12. **Public Card Asset URL Required for Remote Play** — Card image URLs are embedded server-side from `STATIC_FILES_BASE_URL` (`CardService.buildCardPictureSrc`). For phone/remote users, this must be publicly reachable (for example a Cloudflare tunnel URL), not `localhost`.
 
 ---
 
@@ -335,4 +353,20 @@ The current player is always at **"bottom"**.
 
 ### 2026-04-03 — Code Cleanup
 
-- Successfully identified and purged `packages/unoenty/src/skeletons/` due to files being entirely unused structurally.
+### 2026-04-05 — Visual & Logic Polish
+
+| Feature | Description | File(s) |
+|---------|-------------|---------|
+| **Direction Ring** | Replaced `SyncIcon` with a custom SVG **DirectionIndicator** featuring a ring of arrows. Includes rotation based on `game.direction` and a glowing pulse animation targeting the current player's position. | `CardStack/DirectionIndicator.tsx` |
+| **AFK Update** | Changed AFK behavior to strictly **Draw + Skip**. Added logic to prevent double-drawing if a player times out while in the `canPass` state. | `GameService.ts` |
+| **30s Timer** | Standardized the round timer to a fixed 30 seconds across all environments. | `GameService.ts` |
+
+### 2026-04-08 — Stability, Rulesets, and Networking
+
+| Feature/Fix | Description | File(s) |
+|---------|-------------|---------|
+| **Per-game Ruleset Selector** | Added `ruleSetId` per game, create-game picker on dashboard, and backend resolver service. Only `basic` is enabled; future modes are scaffolded placeholders. | `shared/protocols/*`, `Dashboard/index.tsx`, `GameRulesService.ts`, `EventHandlerModule.ts`, `GameService.ts` |
+| **Server-side Move Hardening** | Added backend guards for illegal card submissions (missing cards, duplicate IDs, mixed combos, unusable cards, invalid wild color). | `GameService.ts` |
+| **Restart + Bot First Turn Fix** | Added start-of-round bot/AFK computed play dispatch and null-safe guards around restart/round transitions. | `GameService.ts` |
+| **Winning on Last Multi-card Play** | Game now ends immediately when a player reaches zero cards after `putCard`, including combo plays. | `GameService.ts` |
+| **Drawer Toggle Reliability** | Sidebar now uses a temporary drawer mode so the hamburger button consistently opens/closes on all layouts. | `components/Menu/index.tsx` |

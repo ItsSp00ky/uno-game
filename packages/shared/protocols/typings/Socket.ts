@@ -2,6 +2,7 @@ import { CardColors, CardData } from "./Card"
 import { Chat, ChatEvents, ChatMessage } from "./Chat"
 import { GameEvents, Game } from "./Game"
 import { GameHistory } from "./GameHistory"
+import { GameRuleSetId } from "./GameRules"
 import { GameRoundEvents } from "./GameRound"
 import { Player, PlayerData, PlayerEvents, PlayerStatus } from "./Player"
 
@@ -36,6 +37,7 @@ export type SocketEventHandler<ReceivedData extends unknown, ResponseData extend
 export type SetPlayerDataEventInput = { player: Player }
 export type SetPlayerDataEventResponse = { player: Player }
 
+export type CreateGameEventInput = { ruleSetId?: GameRuleSetId }
 export type CreateGameEventResponse = { gameId: string }
 
 export type JoinGameEventInput = { gameId: string }

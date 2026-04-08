@@ -1,13 +1,15 @@
 import React, { useState } from "react"
 import { useHistory, Link } from "react-router-dom"
-import { Grid, Typography, Button } from "@material-ui/core"
+import { Grid, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel, Select, MenuItem } from "@material-ui/core"
 import {
 	Add as CreateIcon,
 } from "@material-ui/icons"
 
 import {
+	CreateGameEventInput,
 	CreateGameEventResponse,
 	Game,
+	GameRuleSetId,
 } from "@uno-game/protocols"
 
 import useDidMount from "@/hooks/useDidMount"
@@ -20,6 +22,7 @@ import api from "@/services/api"
 import SocketService from "@/services/socket"
 
 import { Divider, LoadingComponent, GameCard } from "@/components"
+import { GAME_RULE_SETS } from "@/constants/gameRules"
 
 import useStyles from "@/pages/Dashboard/styles"
 import useCustomStyles from "@/styles/custom"
@@ -31,6 +34,8 @@ const Dashboard: React.FC = () => {
 
 	const [loadingCreateGame, setLoadingCreateGame] = useState(false)
 	const [loadingGetGames, setLoadingGetGames] = useState(true)
+	const [openCreateGameDialog, setOpenCreateGameDialog] = useState(false)
+	const [selectedRuleSetId, setSelectedRuleSetId] = useState<GameRuleSetId>("basic")
 
 	const history = useHistory()
 	const classes = useStyles()
@@ -41,9 +46,12 @@ const Dashboard: React.FC = () => {
 	const handleCreateNewGame = async () => {
 		setLoadingCreateGame(true)
 
-		const { gameId } = await SocketService.emit<unknown, CreateGameEventResponse>("CreateGame", {})
+		const { gameId } = await SocketService.emit<CreateGameEventInput, CreateGameEventResponse>("CreateGame", {
+			ruleSetId: selectedRuleSetId,
+		})
 
 		setLoadingCreateGame(false)
+		setOpenCreateGameDialog(false)
 
 		history.push(`/${gameId}`)
 	}
@@ -104,7 +112,7 @@ const Dashboard: React.FC = () => {
 						variant="contained"
 						color="primary"
 						startIcon={<CreateIcon />}
-						onClick={handleCreateNewGame}
+						onClick={() => setOpenCreateGameDialog(true)}
 						disabled={loadingCreateGame}
 					>
 						{loadingCreateGame ? "CREATING..." : "CREATE NEW GAME"}
@@ -140,6 +148,57 @@ const Dashboard: React.FC = () => {
 							</Button>
 						))}
 				</Grid>
+
+				<Dialog
+					open={openCreateGameDialog}
+					onClose={() => !loadingCreateGame && setOpenCreateGameDialog(false)}
+					fullWidth
+					maxWidth="sm"
+				>
+					<DialogTitle>Create New Game</DialogTitle>
+					<DialogContent>
+						<FormControl fullWidth>
+							<InputLabel id="rule-set-select-label">Rule Set</InputLabel>
+							<Select
+								labelId="rule-set-select-label"
+								value={selectedRuleSetId}
+								onChange={(event) => setSelectedRuleSetId(event.target.value as GameRuleSetId)}
+							>
+								{GAME_RULE_SETS.map(ruleSet => (
+									<MenuItem
+										key={ruleSet.id}
+										value={ruleSet.id}
+										disabled={!ruleSet.enabled}
+									>
+										{ruleSet.name}
+									</MenuItem>
+								))}
+							</Select>
+						</FormControl>
+
+						<Divider orientation="horizontal" size={2} />
+
+						<Typography variant="body2" color="textSecondary">
+							{GAME_RULE_SETS.find(ruleSet => ruleSet.id === selectedRuleSetId)?.description}
+						</Typography>
+					</DialogContent>
+					<DialogActions>
+						<Button
+							onClick={() => setOpenCreateGameDialog(false)}
+							disabled={loadingCreateGame}
+						>
+							CANCEL
+						</Button>
+						<Button
+							variant="contained"
+							color="primary"
+							onClick={handleCreateNewGame}
+							disabled={loadingCreateGame}
+						>
+							{loadingCreateGame ? "CREATING..." : "CREATE"}
+						</Button>
+					</DialogActions>
+				</Dialog>
 			</Grid>
 		</LoadingComponent>
 	)

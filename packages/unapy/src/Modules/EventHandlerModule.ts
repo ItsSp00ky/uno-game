@@ -11,6 +11,7 @@ import {
 	Player,
 	SetPlayerDataEventInput,
 	SetPlayerDataEventResponse,
+	CreateGameEventInput,
 	CreateGameEventResponse,
 	JoinGameEventInput,
 	JoinGameEventResponse,
@@ -44,7 +45,7 @@ class EventHandlerModule {
 				}
 			})
 
-			SocketService.on<unknown, CreateGameEventResponse>(client, "CreateGame", async () => {
+			SocketService.on<CreateGameEventInput, CreateGameEventResponse>(client, "CreateGame", async ({ ruleSetId }) => {
 				let game = await GameService.getExistingPlayerGame(playerData.id)
 
 				/**
@@ -53,7 +54,7 @@ class EventHandlerModule {
 				if (!game) {
 					const chat = await ChatService.setupChat(playerData.id)
 
-					game = await GameService.setupGame(playerData.id, chat.id)
+					game = await GameService.setupGame(playerData.id, chat.id, ruleSetId)
 				}
 
 				SocketService.setupListener(client, "game", game.id)

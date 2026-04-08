@@ -175,44 +175,6 @@ const useSocket = (): UseSocketResponse => {
 			cardIds,
 			selectedColor,
 		})
-
-		/**
-		 * Little trick to improve response time
-		 */
-		const player = socketStore?.game?.players?.find(player => player.id === socketStore?.player?.id)
-
-		if (!player) {
-			return
-		}
-
-		const cards: CardData[] = []
-
-		cardIds.forEach(cardId => {
-			const card = player?.handCards?.find(card => card?.id === cardId) as CardData
-
-			if (card) {
-				cards.push(card)
-			}
-		})
-
-		socketStore.setGameData({
-			...socketStore?.game as Game,
-			players: socketStore?.game?.players?.map(player => {
-				if (player.id === socketStore?.player?.id) {
-					return {
-						...player,
-						handCards: player.handCards
-							.filter(handCard => !cardIds.includes(handCard.id)),
-					}
-				}
-
-				return player
-			}) as PlayerData[],
-			usedCards: [
-				...cards,
-				...socketStore?.game?.usedCards as CardData[],
-			],
-		})
 	}
 
 	const toggleOnlineStatus = async (gameId: string) => {

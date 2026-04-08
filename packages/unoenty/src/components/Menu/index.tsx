@@ -42,7 +42,7 @@ import ListItem from "@/components/Menu/ListItem"
 const Menu: React.FC = () => {
 	const socketStore = useSocketStore()
 
-	const [opened, setOpened] = useState(!DeviceUtil.isMobile)
+	const [opened, setOpened] = useState(false)
 	const [isTablePage, setIsTablePage] = useState(false)
 
 	const customClasses = useCustomStyles({})
@@ -85,25 +85,23 @@ const Menu: React.FC = () => {
 
 	return (
 		<>
-			{(DeviceUtil.isMobile || isTablePage) && (
-				<Grid
-					container
-					className={classes.menuIconContainer}
+			<Grid
+				container
+				className={classes.menuIconContainer}
+			>
+				<IconButton
+					onClick={handleToggleMenu}
+					className={classes.menuIcon}
 				>
-					<IconButton
-						onClick={handleToggleMenu}
-						className={classes.menuIcon}
-					>
-						<MenuIcon />
-					</IconButton>
-				</Grid>
-			)}
+					<MenuIcon />
+				</IconButton>
+			</Grid>
 
 			<Drawer
 				open={opened}
 				onClose={handleCloseMenu}
 				onOpen={handleOpenMenu}
-				variant={(DeviceUtil.isMobile || isTablePage) ? "temporary" : "permanent"}
+				variant="temporary"
 				anchor="left"
 				style={{
 					zIndex: 99999,

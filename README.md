@@ -41,9 +41,10 @@ A real-time multiplayer UNO card game built as a monorepo. Create a room, invite
 - 🎮 **Real-time multiplayer** — play with 2–8 players via WebSockets
 - 🤖 **Bot Matchmaking** — instantly spawn up to 3 AI-controlled opponents for solo test sessions or filling remaining lobby slots
 - 🃏 **Full UNO rules** — Exact standard 108-card deck size, Draw 2/4 stacking, true "Hand Locking" draw system, color changes, reverse, skip, UNO call
-- 🔄 **Turn tracking visuals** — Dynamic rotating visual indicators reflecting live game direction
+- 🔄 **Direction Ring Visuals** — Dynamic, glowing SVG arrow ring tracking the live game direction and turn flow
+- 🧩 **Per-game Rule Sets** — Choose rules when creating a game (`Basic` active now, additional modes scaffolded as placeholders)
+- ⏱️ **30s AFK Penalty** — Standardized 30-second round timer; idle players are penalized with an automatic **Draw + Skip**
 - 🖱️ **Drag & drop or double-tap** — intuitive card play with native mouse sliding and mobile optimized touch controls
-- ⏱️ **Auto-play AFK** — round timer auto-plays for idle players
 - 💬 **In-game chat** — communicate with other players during the game
 - 📱 **Responsive** — works on desktop and mobile browsers
 
@@ -150,10 +151,27 @@ npx craco start
 | `NODE_ENV` | `development` | Environment mode |
 | `REACT_APP_API_URL` | `http://localhost:5000` | Backend API URL |
 
+### Playing Online (Free with Cloudflare Tunnel)
+
+To let friends join from outside your local network without opening router ports:
+
+1. Start backend (`unapy`) locally.
+2. Run a backend tunnel (`cloudflared tunnel --url http://localhost:5000`) and copy the generated `https://*.trycloudflare.com` URL.
+3. Set backend asset base URL to that public endpoint in `packages/unapy/.env`:
+   - `STATIC_FILES_BASE_URL=https://<your-backend-tunnel>/assets`
+4. Start/restart backend so cards are generated with public image URLs.
+5. Set frontend API URL in `packages/unoenty/.env`:
+   - `REACT_APP_API_URL=https://<your-backend-tunnel>`
+6. Start frontend locally (with `NODE_OPTIONS=--openssl-legacy-provider` if needed).
+7. Run a frontend tunnel (`cloudflared tunnel --url http://localhost:3000` or `:4000`) and share that URL with friends.
+
+> If card images are invisible on phones, the most common cause is `STATIC_FILES_BASE_URL` still pointing to `localhost`.
+
 ## 🎮 How to Play
 
 1. Open the app and enter your name
 2. **Create a new game** or **join an existing one** from the dashboard
+   - When creating, choose a **Rule Set** for that room (currently `Basic` is enabled)
 3. Wait for at least 2 players, or click **ADD BOTS** to instantly fill empty slots, then click **GET READY**
 4. The game starts automatically when all players are ready
 5. **Play cards** by dragging them to the card stack or **double-tapping** them

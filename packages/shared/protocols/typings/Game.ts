@@ -1,4 +1,5 @@
 import { CardData, CardColors, CurrentCardCombo } from "./Card"
+import { GameRuleSetId } from "./GameRules"
 import { PlayerData } from "./Player"
 
 export type GameEvents =
@@ -38,6 +39,7 @@ export type GameDirection =
 "counterclockwise"
 
 export type Game = {
+	ruleSetId: GameRuleSetId
 	direction: GameDirection
 	type: GameType
 	maxPlayers: number

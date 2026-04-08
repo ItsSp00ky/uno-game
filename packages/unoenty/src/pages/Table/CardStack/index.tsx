@@ -1,7 +1,7 @@
 import React, { useRef } from "react"
 import { Grid, Typography, Zoom, Button } from "@material-ui/core"
 import { useDrop } from "react-dnd"
-import SyncIcon from "@material-ui/icons/Sync"
+import DirectionIndicator from "@/pages/Table/CardStack/DirectionIndicator"
 
 import { CardData, CardTypes, CardColors, Game } from "@uno-game/protocols"
 
@@ -96,12 +96,8 @@ const CardStack: React.FC<CardStackProps> = (props) => {
 					backgroundColor: isHovering ? "rgba(255, 255, 255, 0.15)" : "",
 				}}
 			>
-				<SyncIcon 
-					className={`${classes.directionArrow} ${
-						game?.direction === "clockwise" 
-							? classes.directionArrowClockwise 
-							: classes.directionArrowCounterClockwise
-					}`}
+				<DirectionIndicator 
+					game={game}
 				/>
 
 				<Zoom

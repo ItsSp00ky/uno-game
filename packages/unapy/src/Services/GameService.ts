@@ -7,8 +7,6 @@ import ClientService from "@/Services/ClientService"
 import NumberUtil from "@/Utils/NumberUtil"
 import ArrayUtil from "@/Utils/ArrayUtil"
 
-import environmentConfig from "@/Config/environment"
-
 import {
 	Game,
 	GameEvents,
@@ -39,16 +37,19 @@ import {
 import GameRepository from "@/Repositories/GameRepository"
 
 import CryptUtil from "@/Utils/CryptUtil"
+import GameRulesService from "@/Services/GameRulesService"
 
 class GameService {
-	async setupGame (playerId: string, chatId: string): Promise<Game> {
+	async setupGame (playerId: string, chatId: string, selectedRuleSetId?: Game["ruleSetId"]): Promise<Game> {
 		const cards = await CardService.setupRandomCards()
 
 		const playerData = await PlayerService.getPlayerData(playerId)
+		const ruleSetId = GameRulesService.resolveRuleSetId(selectedRuleSetId)
 
 		const game: Game = {
 			maxPlayers: 8,
 			type: "public",
+			ruleSetId,
 			status: "waiting",
 			round: 0,
 			id: CryptUtil.makeShortUUID(),
@@ -66,7 +67,7 @@ class GameService {
 				cardTypes: [],
 				amountToBuy: 0,
 			},
-			maxRoundDurationInSeconds: environmentConfig.isDev ? 100 : 30,
+			maxRoundDurationInSeconds: 30,
 			createdAt: Date.now(),
 		}
 
@@ -204,7 +205,52 @@ class GameService {
 
 		const available = [...game?.availableCards]
 
+		// During a +2/+4 chain, drawing must consume the full penalty.
+		if (game.currentCardCombo.amountToBuy > 0) {
+			const amountToBuy = game.currentCardCombo.amountToBuy
+			const cards = available.slice(0, amountToBuy)
+
+			this.emitGameEvent<PlayerBuyCardsEventData>(game.id, "PlayerBuyCards", {
+				playerId: playerId,
+				amountToBuy,
+			})
+
+			this.emitGameEvent<PlayerBoughtCardEventData>(game.id, "PlayerBoughtCard", {
+				playerId: playerId,
+				cards,
+			})
+
+			game.players = game.players.map(playerItem => {
+				if (playerItem.id === playerId) {
+					return {
+						...playerItem,
+						handCards: [...cards, ...playerItem.handCards],
+					}
+				}
+
+				return playerItem
+			})
+
+			game.availableCards = available.slice(cards.length, available.length)
+			game.currentCardCombo = {
+				cardTypes: [],
+				amountToBuy: 0,
+			}
+
+			this.emitGameEvent<GameAmountToBuyChangedEventData>(game.id, "GameAmountToBuyChanged", {
+				amountToBuy: 0,
+			})
+
+			await this.setGameData(gameId, game)
+			await this.nextRound(gameId)
+			return
+		}
+
 		const card = available.shift()
+
+		if (!card) {
+			return
+		}
 
 		this.emitGameEvent<PlayerBoughtCardEventData>(game.id, "PlayerBoughtCard", {
 			playerId: playerId,
@@ -363,6 +409,25 @@ class GameService {
 			cards.push(card)
 		})
 
+		const hasMissingCard = cards.some(card => !card)
+		const isEmptyMove = cards.length === 0
+		const hasDuplicatedCardIds = new Set(cardIds).size !== cardIds.length
+		const isSingleTypeCombo = cards.every(card => card.type === cards[0]?.type)
+		const hasIllegalCard = cards.some(card => !card?.canBeUsed)
+		const requiresSelectedColor = cards.every(card => card?.color === "black")
+		const selectedColorIsInvalid = selectedColor === "black" || !selectedColor
+
+		if (
+			isEmptyMove ||
+			hasMissingCard ||
+			hasDuplicatedCardIds ||
+			!isSingleTypeCombo ||
+			hasIllegalCard ||
+			(requiresSelectedColor && selectedColorIsInvalid)
+		) {
+			return
+		}
+
 		this.emitGameEvent<PlayerPutCardEventData>(game.id, "PlayerPutCard", { playerId, cards })
 
 		game.players = game?.players?.map(player => {
@@ -415,6 +480,19 @@ class GameService {
 
 		await this.setGameData(gameId, game)
 
+		const updatedCurrentPlayer = game.players.find(playerItem => playerItem.id === playerId)
+		if (updatedCurrentPlayer?.handCards?.length === 0) {
+			this.emitGameEvent<PlayerWonEventData>(gameId, "PlayerWon", {
+				player: {
+					id: updatedCurrentPlayer.id,
+					name: updatedCurrentPlayer.name,
+				},
+			})
+
+			await this.endGame(gameId)
+			return
+		}
+
 		await this.nextRound(gameId)
 	}
 
@@ -447,11 +525,29 @@ class GameService {
 
 	private async makeComputedPlay (gameId: string, playerId: string): Promise<void> {
 		const game = await this.getGame(gameId)
+		if (!game || game.status !== "playing") {
+			return
+		}
 
 		const player = game.players.find(playerItem => playerItem.id === playerId)
-
-		if (player.status === "online") {
+		if (!player) {
 			return
+		}
+
+		if (player.status === "afk") {
+			if (player.canPass) {
+				return await this.passTurn(playerId, gameId)
+			} else {
+				await this.buyCard(playerId, gameId)
+
+				const updatedGame = await this.getGame(gameId)
+				const updatedPlayer = updatedGame.players.find(p => p.id === playerId)
+				
+				if (updatedPlayer?.canPass) {
+					return await this.passTurn(playerId, gameId)
+				}
+				return
+			}
 		}
 
 		if (player.status === "bot") {
@@ -459,8 +555,6 @@ class GameService {
 			if (player.canPass) {
 				const usableCard = player.handCards.find(card => card.canBeUsed)
 				if (usableCard) {
-					// 50/50 chance to pass vs play if it's legally possible?
-					// Let's have the bot always play to keep the game moving.
 					const color = await this.getOptimizedBotColorSelection(player.handCards)
 					return await this.putCard(playerId, [usableCard.id], gameId, color)
 				} else {
@@ -554,8 +648,14 @@ class GameService {
 		await GameRoundService.resetRoundCounter(gameId, {
 			timeoutAction: async (gameId) => {
 				const game = await this.getGame(gameId)
+				if (!game || game.status !== "playing") {
+					return
+				}
 
 				const currentPlayerInfo = await this.getCurrentPlayerInfo(game)
+				if (!currentPlayerInfo?.id) {
+					return
+				}
 
 				game.players = await this.buildPlayersWithChangedPlayerStatus(game, currentPlayerInfo.id, "afk")
 
@@ -581,6 +681,9 @@ class GameService {
 
 	private async buildPlayersWithChangedPlayerStatus (game: Game, playerId: string, status: PlayerStatus): Promise<PlayerData[]> {
 		const updatedPlayer = game.players.find(({ id }) => id === playerId)
+		if (!updatedPlayer) {
+			return game.players
+		}
 
 		updatedPlayer.status = status
 
@@ -606,6 +709,9 @@ class GameService {
 		const allCards = [...game?.cards]
 
 		const currentPlayer = await this.getCurrentPlayerInfo(game)
+		if (!currentPlayer?.id) {
+			return
+		}
 
 		game.status = "playing"
 
@@ -632,7 +738,7 @@ class GameService {
 		 * Place a starter card on the stack (standard UNO rules).
 		 * Find the first non-wild card to use as the starter.
 		 */
-		const starterCardIndex = allCards.findIndex(card => card.color !== "black")
+		const starterCardIndex = allCards.findIndex(card => card && card.color !== "black")
 		let starterCard: CardData
 
 		if (starterCardIndex !== -1) {
@@ -640,6 +746,9 @@ class GameService {
 		} else {
 			// Fallback: just take the first card
 			starterCard = allCards.shift()
+		}
+		if (!starterCard) {
+			return
 		}
 
 		game.usedCards = [starterCard]
@@ -654,6 +763,25 @@ class GameService {
 		this.emitGameEvent<GameStartedEventData>(gameId, "GameStarted", { game })
 
 		await this.resetRoundCounter(gameId)
+
+		const updatedGame = await this.getGame(gameId)
+		const startingPlayerInfo = await this.getCurrentPlayerInfo(updatedGame)
+
+		if (startingPlayerInfo?.playerStatus === "afk") {
+			await new Promise(resolve => {
+				setTimeout(async () => {
+					await this.makeComputedPlay(gameId, startingPlayerInfo.id)
+					resolve(true)
+				}, 1000)
+			})
+		} else if (startingPlayerInfo?.playerStatus === "bot") {
+			await new Promise(resolve => {
+				setTimeout(async () => {
+					await this.makeComputedPlay(gameId, startingPlayerInfo.id)
+					resolve(true)
+				}, 2000)
+			})
+		}
 	}
 
 	private async addPlayer (gameId: string, playerId: string): Promise<void> {
@@ -701,8 +829,14 @@ class GameService {
 		await this.resetRoundCounter(gameId)
 
 		const game = await this.getGame(gameId)
+		if (!game || game.status !== "playing") {
+			return
+		}
 
 		const currentPlayerInfo = await this.getCurrentPlayerInfo(game)
+		if (!currentPlayerInfo?.id) {
+			return
+		}
 
 		if (currentPlayerInfo.gameStatus === "winner") {
 			this.emitGameEvent<PlayerWonEventData>(gameId, "PlayerWon", {
@@ -730,6 +864,9 @@ class GameService {
 		}
 
 		const nextPlayer = game?.players?.[nextPlayerIndex]
+		if (!nextPlayer) {
+			return
+		}
 
 		game.players = await this.buildPlayersWithCardUsability(nextPlayer.id, game)
 
@@ -986,6 +1123,14 @@ class GameService {
 		const { players } = game
 
 		const currentPlayer = players[game?.currentPlayerIndex]
+		if (!currentPlayer) {
+			return {
+				id: "",
+				name: "",
+				playerStatus: "offline",
+				gameStatus: undefined as CurrentPlayerGameStatus,
+			}
+		}
 
 		const currentPlayerId = currentPlayer?.id
 		let gameStatus: CurrentPlayerGameStatus
